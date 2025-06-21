@@ -115,9 +115,8 @@ fun GenderSelectionScreen(onContinueClicked: (Gender) -> Unit) {
             Button(
                 onClick = { onContinueClicked(selectedGender) },
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp)
-                    .padding(horizontal = 24.dp),
+                    .width(250.dp)
+                    .height(76.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue)
             ) {
                 Text(text = "Continue", fontSize = 18.sp, color = Color.White)

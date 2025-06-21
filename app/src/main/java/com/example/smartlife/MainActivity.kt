@@ -13,14 +13,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import com.example.smartlife.ui.theme.Gender
-import com.example.smartlife.ui.theme.GenderSelectionScreen
-import com.example.smartlife.ui.theme.SmartLifeTheme
-import com.example.smartlife.ui.theme.WelcomeScreen
+import com.example.smartlife.ui.theme.*
 
 sealed class Screen {
     object Welcome : Screen()
     object GenderSelection : Screen()
+    object HeightSelection : Screen()
+    object AgeSelection : Screen()
     object Home : Screen()
 }
 
@@ -48,7 +47,7 @@ fun MainApp() {
         context.getSharedPreferences("smartlife_prefs", Context.MODE_PRIVATE)
     }
 
-    val isOnboardingComplete = sharedPreferences.getString("user_gender", null) != null
+    val isOnboardingComplete = sharedPreferences.getInt("user_age", 0) != 0
 
     var currentScreen by remember {
         mutableStateOf<Screen>(if (isOnboardingComplete) Screen.Home else Screen.Welcome)
@@ -64,6 +63,24 @@ fun MainApp() {
             GenderSelectionScreen(onContinueClicked = { selectedGender ->
                 with(sharedPreferences.edit()) {
                     putString("user_gender", selectedGender.name)
+                    apply()
+                }
+                currentScreen = Screen.HeightSelection
+            })
+        }
+        is Screen.HeightSelection -> {
+            HeightSelectionScreen(onContinueClicked = { selectedHeight ->
+                with(sharedPreferences.edit()) {
+                    putInt("user_height", selectedHeight)
+                    apply()
+                }
+                currentScreen = Screen.AgeSelection
+            })
+        }
+        is Screen.AgeSelection -> {
+            AgeSelectionScreen(onContinueClicked = { selectedAge ->
+                with(sharedPreferences.edit()) {
+                    putInt("user_age", selectedAge)
                     putBoolean("welcome_screen_shown", true)
                     apply()
                 }
@@ -82,12 +99,14 @@ fun MainContent() {
     val sharedPreferences = remember {
         context.getSharedPreferences("smartlife_prefs", Context.MODE_PRIVATE)
     }
-    val savedGender = sharedPreferences.getString("user_gender", "Not Selected")
+    val savedGender = sharedPreferences.getString("user_gender", "N/A")
+    val savedHeight = sharedPreferences.getInt("user_height", 0)
+    val savedAge = sharedPreferences.getInt("user_age", 0)
 
     Box(
         modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
-        Text(text = "Main App Content\nYour Gender is: $savedGender")
+        Text(text = "Main App Content\nGender: $savedGender\nHeight: ${savedHeight}cm\nAge: $savedAge")
     }
 }
