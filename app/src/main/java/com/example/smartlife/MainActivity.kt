@@ -89,6 +89,7 @@ fun MainApp() {
         }
         is Screen.Home -> {
             MainContent()
+
         }
     }
 }
