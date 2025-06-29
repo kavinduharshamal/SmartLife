@@ -4,13 +4,10 @@ import android.content.Context
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import com.example.smartlife.ui.theme.*
@@ -20,7 +17,7 @@ sealed class Screen {
     object GenderSelection : Screen()
     object HeightSelection : Screen()
     object AgeSelection : Screen()
-    object Home : Screen()
+    object Dashboard : Screen()
 }
 
 class MainActivity : ComponentActivity() {
@@ -47,10 +44,10 @@ fun MainApp() {
         context.getSharedPreferences("smartlife_prefs", Context.MODE_PRIVATE)
     }
 
-    val isOnboardingComplete = sharedPreferences.getInt("user_age", 0) != 0
+    val isOnboardingComplete = sharedPreferences.getBoolean("welcome_screen_shown", false)
 
     var currentScreen by remember {
-        mutableStateOf<Screen>(if (isOnboardingComplete) Screen.Home else Screen.Welcome)
+        mutableStateOf<Screen>(if (isOnboardingComplete) Screen.Dashboard else Screen.Welcome)
     }
 
     when (currentScreen) {
@@ -84,30 +81,11 @@ fun MainApp() {
                     putBoolean("welcome_screen_shown", true)
                     apply()
                 }
-                currentScreen = Screen.Home
+                currentScreen = Screen.Dashboard
             })
         }
-        is Screen.Home -> {
-            MainContent()
-
+        is Screen.Dashboard -> {
+            DashboardScreen()
         }
-    }
-}
-
-@Composable
-fun MainContent() {
-    val context = LocalContext.current
-    val sharedPreferences = remember {
-        context.getSharedPreferences("smartlife_prefs", Context.MODE_PRIVATE)
-    }
-    val savedGender = sharedPreferences.getString("user_gender", "N/A")
-    val savedHeight = sharedPreferences.getInt("user_height", 0)
-    val savedAge = sharedPreferences.getInt("user_age", 0)
-
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(text = "Main App Content\nGender: $savedGender\nHeight: ${savedHeight}cm\nAge: $savedAge")
     }
 }
