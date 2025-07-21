@@ -1,153 +1,301 @@
 package com.example.smartlife.screen.dailyplanner
 
 import android.app.TimePickerDialog
+import android.os.Build
 import android.widget.Toast
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.smartlife.data.TaskEntity
 import com.example.smartlife.model.TaskViewModel.TaskViewModel
+import com.example.smartlife.model.TaskViewModelFactory
+import com.example.smartlife.ui.theme.BottomNavigationBar
+import com.example.smartlife.ui.theme.Pink40
+import com.example.smartlife.ui.theme.PrimaryBlue
 import java.text.SimpleDateFormat
+import java.time.LocalDate
+import java.time.Month
+import java.time.format.TextStyle
 import java.util.*
 
+@RequiresApi(Build.VERSION_CODES.O)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DailyPlannerScreen(viewModel: TaskViewModel,onBack: () -> Unit) {
+fun DailyPlannerScreen(
+    viewModel: TaskViewModel,
+    onBack: () -> Unit = {}
+) {
     val context = LocalContext.current
     val tasks by viewModel.tasks.collectAsState()
 
-    var name by remember { mutableStateOf(TextFieldValue("")) }
-    var description by remember { mutableStateOf(TextFieldValue("")) }
+    val colorGreen = Color(0xFFE0F7E9)
+    val colorGreenBorder = Color(0xFF4CAF50)
+    val colorRed = Color(0xFFFFE5E5)
+    val colorRedBorder = Color(0xFFD32F2F)
+    val colorBlue = Color(0xFFD6ECFF)
+    val colorBlueBorder = Color(0xFF1976D2)
+    val colorPink = Pink40
+
+    var showDialog by remember { mutableStateOf(false) }
+    var name by remember { mutableStateOf("") }
+    var description by remember { mutableStateOf("") }
     var selectedTime by remember { mutableStateOf<Long?>(null) }
 
-    Column(modifier = Modifier
-        .fillMaxSize()
-        .padding(16.dp)
-    ) {
-        Text("Add Task", style = MaterialTheme.typography.titleLarge)
+    val today = LocalDate.now()
+    val sunday = today.minusDays(today.dayOfWeek.value.toLong() % 7)
+    val week = (0..6).map { sunday.plusDays(it.toLong()) }
+    var selectedDate by remember { mutableStateOf(today) }
 
-        Spacer(modifier = Modifier.height(8.dp))
+    val months = Month.values().map { it.getDisplayName(TextStyle.FULL, Locale.getDefault()) }
+    var expanded by remember { mutableStateOf(false) }
+    var selectedMonth by remember { mutableStateOf(today.monthValue - 1) }
 
-        OutlinedTextField(
-            value = name,
-            onValueChange = { name = it },
-            label = { Text("Task Name") },
-            modifier = Modifier.fillMaxWidth()
-        )
+    Scaffold(
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = { showDialog = true },
+                containerColor = PrimaryBlue,
+                contentColor = Color.White
+            ) {
+                Icon(Icons.Default.Add, contentDescription = "Add Task")
+            }
+        },
+        bottomBar = {
+            BottomNavigationBar(onCalendarClicked = {})
+        },
+        containerColor = Color.White
+    ) { inner ->
 
-        Spacer(modifier = Modifier.height(8.dp))
-
-        OutlinedTextField(
-            value = description,
-            onValueChange = { description = it },
-            label = { Text("Description (Optional)") },
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        val calendar = Calendar.getInstance()
-        val timeFormat = SimpleDateFormat("hh:mm a", Locale.getDefault())
-        val timeLabel = selectedTime?.let { timeFormat.format(Date(it)) } ?: "Select Time"
-
-        Button(onClick = {
-            TimePickerDialog(
-                context,
-                { _, hour, minute ->
-                    calendar.set(Calendar.HOUR_OF_DAY, hour)
-                    calendar.set(Calendar.MINUTE, minute)
-                    selectedTime = calendar.timeInMillis
-                },
-                calendar.get(Calendar.HOUR_OF_DAY),
-                calendar.get(Calendar.MINUTE),
-                false
-            ).show()
-        }) {
-            Text(timeLabel)
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Button(
-            onClick = {
-                if (name.text.isNotBlank() && selectedTime != null) {
-                    val task = TaskEntity(
-                        name = name.text,
-                        description = description.text,
-                        dateTime = selectedTime!!,
-                        isCompleted = false
-                    )
-                    viewModel.addTask(task)
-                    name = TextFieldValue("")
-                    description = TextFieldValue("")
-                    selectedTime = null
-                    Toast.makeText(context, "Task added!", Toast.LENGTH_SHORT).show()
-                } else {
-                    Toast.makeText(context, "Please fill required fields", Toast.LENGTH_SHORT).show()
-                }
-            },
-            modifier = Modifier.fillMaxWidth()
+        Column(
+            Modifier
+                .fillMaxSize()
+                .padding(inner)
+                .padding(horizontal = 16.dp)
         ) {
-            Text("Add Task")
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 12.dp, bottom = 4.dp)
+            ) {
+                Box {
+                    Button(
+                        onClick = { expanded = true },
+                        shape = RoundedCornerShape(50),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color.White),
+                        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 1.dp),
+                        modifier = Modifier
+                            .border(width = 1.dp, color = Color.LightGray, shape = RoundedCornerShape(50))
+                    ) {
+                        Text(months[selectedMonth], fontSize = 14.sp, color = Color.Black)
+                        Icon(Icons.Default.ArrowDropDown, contentDescription = "Dropdown", tint = Color.DarkGray)
+                    }
+
+                    DropdownMenu(
+                        expanded = expanded,
+                        onDismissRequest = { expanded = false }
+                    ) {
+                        months.forEachIndexed { index, month ->
+                            DropdownMenuItem(
+                                text = { Text(month) },
+                                onClick = {
+                                    selectedMonth = index
+                                    expanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+
+                IconButton(onClick = {}) {
+                    Icon(Icons.Default.DateRange, contentDescription = "Calendar", tint = Color.DarkGray)
+                }
+            }
+
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(vertical = 12.dp)) {
+                items(week) { date ->
+                    val isSelected = date == selectedDate
+                    val pillColor = when {
+                        isSelected && date.dayOfWeek.value == 7 -> colorPink
+                        isSelected -> Color(0xFFD7F1FF)
+                        else -> Color.White
+                    }
+                    val borderColor = if (isSelected) Color(0xFF5BC8FF) else Color.LightGray
+
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(pillColor)
+                            .border(1.dp, borderColor, RoundedCornerShape(12.dp))
+                            .clickable { selectedDate = date }
+                            .padding(vertical = 8.dp, horizontal = 12.dp)
+                    ) {
+                        Text(
+                            text = date.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.getDefault()),
+                            fontSize = 12.sp,
+                            color = if (isSelected) Color.DarkGray else Color.Gray
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text = date.dayOfMonth.toString(),
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (isSelected) Color.DarkGray else Color.Gray
+                        )
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(16.dp))
+
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                items(tasks.filter {
+                    val cal = Calendar.getInstance().apply { timeInMillis = it.dateTime }
+                    val taskDate = LocalDate.of(cal.get(Calendar.YEAR), cal.get(Calendar.MONTH) + 1, cal.get(Calendar.DAY_OF_MONTH))
+                    taskDate == selectedDate
+                }) { task ->
+                    val now = System.currentTimeMillis()
+                    val isMissed = !task.isCompleted && task.dateTime < now
+                    val bgColor = when {
+                        task.isCompleted -> colorGreen
+                        isMissed -> colorRed
+                        else -> colorBlue
+                    }
+                    val borderColor = when {
+                        task.isCompleted -> colorGreenBorder
+                        isMissed -> colorRedBorder
+                        else -> colorBlueBorder
+                    }
+
+                    Row(verticalAlignment = Alignment.Top, modifier = Modifier.fillMaxWidth()) {
+                        Text(
+                            text = SimpleDateFormat("hh:mm a", Locale.getDefault()).format(Date(task.dateTime)),
+                            fontSize = 12.sp,
+                            modifier = Modifier.width(72.dp),
+                            color = Color.Gray
+                        )
+
+                        Spacer(Modifier.width(12.dp))
+
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(24.dp))
+                                .background(bgColor)
+                                .border(1.dp, borderColor, RoundedCornerShape(24.dp))
+                                .padding(12.dp)
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.DateRange, contentDescription = null, tint = borderColor)
+                                Spacer(Modifier.width(8.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(task.name, fontSize = 16.sp, fontWeight = FontWeight.Medium)
+                                    if (!task.description.isNullOrBlank()) {
+                                        Text(task.description ?: "", fontSize = 14.sp, color = Color.DarkGray)
+                                    }
+                                }
+                                Checkbox(
+                                    checked = task.isCompleted,
+                                    onCheckedChange = { viewModel.updateTask(task.copy(isCompleted = it)) },
+                                    colors = CheckboxDefaults.colors(checkedColor = borderColor)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Text("Tasks", style = MaterialTheme.typography.titleLarge)
-
-        LazyColumn {
-            items(tasks) { task ->
-                TaskItem(task = task, onCheckChanged = { isChecked ->
-                    viewModel.updateTask(task.copy(isCompleted = isChecked))
-                })
+        if (showDialog) {
+            Dialog(onDismissRequest = { showDialog = false }) {
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    tonalElevation = 4.dp,
+                    modifier = Modifier.padding(16.dp)
+                ) {
+                    Column(Modifier.padding(16.dp)) {
+                        Text("Add Task", fontSize = 20.sp, fontWeight = FontWeight.Medium)
+                        Spacer(Modifier.height(12.dp))
+                        OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Task Name") }, modifier = Modifier.fillMaxWidth())
+                        Spacer(Modifier.height(8.dp))
+                        OutlinedTextField(value = description, onValueChange = { description = it }, label = { Text("Description") }, modifier = Modifier.fillMaxWidth())
+                        Spacer(Modifier.height(8.dp))
+                        val cal = Calendar.getInstance()
+                        val fmt = SimpleDateFormat("hh:mm a", Locale.getDefault())
+                        val timeLabel = selectedTime?.let { fmt.format(Date(it)) } ?: "Select Time"
+                        Button(onClick = {
+                            TimePickerDialog(context, { _, h, m ->
+                                cal.set(Calendar.HOUR_OF_DAY, h)
+                                cal.set(Calendar.MINUTE, m)
+                                selectedTime = cal.timeInMillis
+                            }, cal.get(Calendar.HOUR_OF_DAY), cal.get(Calendar.MINUTE), false).show()
+                        }) { Text(timeLabel) }
+                        Spacer(Modifier.height(16.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                            TextButton(onClick = { showDialog = false }) {
+                                Text("Cancel")
+                            }
+                            Button(onClick = {
+                                if (name.isNotBlank() && selectedTime != null) {
+                                    val finalTime = Calendar.getInstance().apply {
+                                        timeInMillis = selectedTime!!
+                                        set(Calendar.YEAR, selectedDate.year)
+                                        set(Calendar.MONTH, selectedDate.monthValue - 1)
+                                        set(Calendar.DAY_OF_MONTH, selectedDate.dayOfMonth)
+                                    }.timeInMillis
+                                    viewModel.addTask(TaskEntity(name = name, description = description, dateTime = finalTime, isCompleted = false))
+                                    name = ""
+                                    description = ""
+                                    selectedTime = null
+                                    showDialog = false
+                                    Toast.makeText(context, "Task added!", Toast.LENGTH_SHORT).show()
+                                } else {
+                                    Toast.makeText(context, "Please fill all fields", Toast.LENGTH_SHORT).show()
+                                }
+                            }, modifier = Modifier.weight(1f)) {
+                                Text("Save")
+                            }
+                        }
+                    }
+                }
             }
         }
     }
 }
 
+@RequiresApi(Build.VERSION_CODES.O)
+@Preview(showBackground = true)
 @Composable
-fun TaskItem(task: TaskEntity, onCheckChanged: (Boolean) -> Unit) {
-    val currentTime = System.currentTimeMillis()
-    val isMissed = !task.isCompleted && task.dateTime < currentTime
-
-    val backgroundColor = when {
-        task.isCompleted -> Color(0xFFD1F2EB) // Greenish
-        isMissed -> Color(0xFFFFCDD2) // Reddish
-        else -> Color(0xFFE3F2FD) // Light blue
-    }
-
-    val timeFormat = SimpleDateFormat("hh:mm a", Locale.getDefault())
-    val formattedTime = timeFormat.format(Date(task.dateTime))
-
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        colors = CardDefaults.cardColors(containerColor = backgroundColor)
-    ) {
-        Row(
-            modifier = Modifier
-                .padding(12.dp)
-                .fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(text = task.name, style = MaterialTheme.typography.titleMedium)
-                Text(text = task.description ?: "", style = MaterialTheme.typography.bodySmall)
-                Text(text = "Time: $formattedTime", style = MaterialTheme.typography.bodySmall)
-            }
-            Checkbox(
-                checked = task.isCompleted,
-                onCheckedChange = onCheckChanged
-            )
-        }
-    }
+fun DailyPlannerPreview() {
+    val context = LocalContext.current
+    val db = AppDatabase.getInstance(context)
+    val taskDao = db.taskdto()
+    val viewModel: TaskViewModel = viewModel(factory = TaskViewModelFactory(taskDao))
+    DailyPlannerScreen(viewModel)
 }
