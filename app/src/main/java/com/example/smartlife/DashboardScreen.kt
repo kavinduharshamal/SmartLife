@@ -1,5 +1,6 @@
 package com.example.smartlife.ui.theme
 
+import android.annotation.SuppressLint
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -27,10 +28,12 @@ import com.example.smartlife.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DashboardScreen() {
+fun DashboardScreen(
+    onCalendarClicked: () -> Unit
+) {
     Scaffold(
         topBar = { TopAppBar() },
-        bottomBar = { BottomNavigationBar() },
+        bottomBar = { BottomNavigationBar(onCalendarClicked = onCalendarClicked) },
         containerColor = Color.White
     ) { paddingValues ->
         Column(
@@ -45,6 +48,7 @@ fun DashboardScreen() {
         }
     }
 }
+
 
 @Composable
 fun TopAppBar() {
@@ -140,6 +144,7 @@ fun StatCard(title: String, value: String, unit: String, icon: ImageVector, modi
     }
 }
 
+@SuppressLint("UnusedBoxWithConstraintsScope")
 @Composable
 fun BarChart(
     modifier: Modifier = Modifier,
@@ -231,7 +236,10 @@ fun PedometerSection() {
 
 
 @Composable
-fun BottomNavigationBar(modifier: Modifier = Modifier) {
+fun BottomNavigationBar(
+    modifier: Modifier = Modifier,
+    onCalendarClicked: () -> Unit
+) {
     var selectedItem by remember { mutableStateOf(0) }
     val items = listOf(
         "Home" to Icons.Default.Home,
@@ -248,9 +256,7 @@ fun BottomNavigationBar(modifier: Modifier = Modifier) {
             .shadow(12.dp, topRoundedCorners, clip = false)
             .clip(topRoundedCorners)
     ) {
-        NavigationBar(
-            containerColor = Color.White
-        ) {
+        NavigationBar(containerColor = Color.White) {
             items.forEachIndexed { index, item ->
                 NavigationBarItem(
                     icon = {
@@ -262,18 +268,24 @@ fun BottomNavigationBar(modifier: Modifier = Modifier) {
                         )
                     },
                     selected = selectedItem == index,
-                    onClick = { selectedItem = index },
-                    alwaysShowLabel = false // Hide label completely
+                    onClick = {
+                        selectedItem = index
+                        if (item.first == "Calendar") {
+                            onCalendarClicked() // ✅ Navigate to planner
+                        }
+                    },
+                    alwaysShowLabel = false
                 )
             }
         }
     }
 }
 
+
 @Preview(showBackground = true)
 @Composable
 fun DashboardScreenPreview() {
     SmartLifeTheme {
-        DashboardScreen()
+        DashboardScreen(onCalendarClicked = {})
     }
 }
