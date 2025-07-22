@@ -3,6 +3,7 @@ package com.example.smartlife
 import android.content.Context
 import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.annotation.RequiresApi
@@ -16,12 +17,16 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.smartlife.model.TaskViewModel.TaskViewModel
 import com.example.smartlife.model.TaskViewModelFactory
 import com.example.smartlife.screen.dailyplanner.DailyPlannerScreen
+import com.example.smartlife.screen.dashboard.DashboardScreen
 import com.example.smartlife.ui.theme.*
+
+private const val TAG = "MainAppNavigation"
 
 sealed class Screen {
     object Welcome : Screen()
     object GenderSelection : Screen()
     object HeightSelection : Screen()
+    object WeightSelection : Screen()
     object AgeSelection : Screen()
     object Dashboard : Screen()
     object DailyPlanner : Screen()
@@ -55,7 +60,7 @@ fun MainApp() {
 
     val isOnboardingComplete = sharedPreferences.getBoolean("welcome_screen_shown", false)
     val db = AppDatabase.getInstance(context)
-    val taskDao = db.taskdto()
+    val taskDao = db.taskDao()
     val taskViewModel: TaskViewModel = viewModel(factory = TaskViewModelFactory(taskDao))
 
 
@@ -63,9 +68,12 @@ fun MainApp() {
         mutableStateOf<Screen>(if (isOnboardingComplete) Screen.Dashboard else Screen.Welcome)
     }
 
+    Log.d(TAG, "Current Screen: ${currentScreen::class.java.simpleName}")
+
     when (currentScreen) {
         is Screen.Welcome -> {
             WelcomeScreen(onGetStartedClicked = {
+                Log.d(TAG, "Navigating from Welcome to GenderSelection")
                 currentScreen = Screen.GenderSelection
             })
         }
@@ -75,6 +83,7 @@ fun MainApp() {
                     putString("user_gender", selectedGender.name)
                     apply()
                 }
+                Log.d(TAG, "Navigating from GenderSelection to HeightSelection")
                 currentScreen = Screen.HeightSelection
             })
         }
@@ -84,6 +93,17 @@ fun MainApp() {
                     putInt("user_height", selectedHeight)
                     apply()
                 }
+                Log.d(TAG, "Navigating from HeightSelection to WeightSelection")
+                currentScreen = Screen.WeightSelection
+            })
+        }
+        is Screen.WeightSelection -> {
+            WeightSelectionScreen(onContinueClicked = { selectedWeight ->
+                with(sharedPreferences.edit()) {
+                    putInt("user_weight", selectedWeight)
+                    apply()
+                }
+                Log.d(TAG, "Navigating from WeightSelection to AgeSelection")
                 currentScreen = Screen.AgeSelection
             })
         }
@@ -94,20 +114,32 @@ fun MainApp() {
                     putBoolean("welcome_screen_shown", true)
                     apply()
                 }
+                Log.d(TAG, "Navigating from AgeSelection to Dashboard")
                 currentScreen = Screen.Dashboard
             })
         }
         is Screen.Dashboard -> {
-            DashboardScreen(
-                onCalendarClicked = { currentScreen = Screen.DailyPlanner }
+            DashboardScreen (
+                onCalendarClicked = {
+                    Log.d(TAG, "Dashboard: onCalendarClicked triggered. Attempting to navigate to DailyPlanner.")
+                    currentScreen = Screen.DailyPlanner
+                },
+                onHomeClicked = {
+                    Log.d(TAG, "Dashboard: onHomeClicked triggered. Already on Dashboard.")
+                }
             )
         }
         is Screen.DailyPlanner -> {
             DailyPlannerScreen(
                 viewModel = taskViewModel,
+                onHomeClicked = {
+                    Log.d(TAG, "DailyPlanner: onHomeClicked triggered. Attempting to navigate to Dashboard.")
+                    currentScreen = Screen.Dashboard
+                },
+                onCalendarClicked = {
+                    Log.d(TAG, "DailyPlanner: onCalendarClicked triggered. Already on DailyPlanner.")
+                }
             )
         }
-
     }
 }
-

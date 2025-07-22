@@ -29,15 +29,17 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.smartlife.BottomNavigationBar
 import com.example.smartlife.data.TaskEntity
 import com.example.smartlife.model.TaskViewModel.TaskViewModel
 import com.example.smartlife.model.TaskViewModelFactory
-import com.example.smartlife.ui.theme.BottomNavigationBar
 import com.example.smartlife.ui.theme.Pink40
 import com.example.smartlife.ui.theme.PrimaryBlue
 import java.text.SimpleDateFormat
+import java.time.Instant
 import java.time.LocalDate
 import java.time.Month
+import java.time.ZoneId
 import java.time.format.TextStyle
 import java.util.*
 
@@ -46,7 +48,8 @@ import java.util.*
 @Composable
 fun DailyPlannerScreen(
     viewModel: TaskViewModel,
-    onBack: () -> Unit = {}
+    onHomeClicked: () -> Unit,
+    onCalendarClicked: () -> Unit
 ) {
     val context = LocalContext.current
     val tasks by viewModel.tasks.collectAsState()
@@ -63,15 +66,19 @@ fun DailyPlannerScreen(
     var name by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
     var selectedTime by remember { mutableStateOf<Long?>(null) }
+    var showDatePicker by remember { mutableStateOf(false) }
 
-    val today = LocalDate.now()
-    val sunday = today.minusDays(today.dayOfWeek.value.toLong() % 7)
+    var selectedDate by remember { mutableStateOf(LocalDate.now()) }
+    val sunday = selectedDate.minusDays(selectedDate.dayOfWeek.value.toLong() % 7)
     val week = (0..6).map { sunday.plusDays(it.toLong()) }
-    var selectedDate by remember { mutableStateOf(today) }
 
     val months = Month.values().map { it.getDisplayName(TextStyle.FULL, Locale.getDefault()) }
     var expanded by remember { mutableStateOf(false) }
-    var selectedMonth by remember { mutableStateOf(today.monthValue - 1) }
+    var selectedMonth by remember { mutableStateOf(selectedDate.monthValue - 1) }
+
+    LaunchedEffect(selectedDate) {
+        selectedMonth = selectedDate.monthValue - 1
+    }
 
     Scaffold(
         floatingActionButton = {
@@ -84,7 +91,11 @@ fun DailyPlannerScreen(
             }
         },
         bottomBar = {
-            BottomNavigationBar(onCalendarClicked = {})
+            BottomNavigationBar(
+                onHomeClicked = onHomeClicked,
+                onCalendarClicked = onCalendarClicked,
+                initialSelectedItem = 2
+            )
         },
         containerColor = Color.White
     ) { inner ->
@@ -132,7 +143,7 @@ fun DailyPlannerScreen(
                     }
                 }
 
-                IconButton(onClick = {}) {
+                IconButton(onClick = { showDatePicker = true }) {
                     Icon(Icons.Default.DateRange, contentDescription = "Calendar", tint = Color.DarkGray)
                 }
             }
@@ -286,6 +297,30 @@ fun DailyPlannerScreen(
                 }
             }
         }
+
+        if (showDatePicker) {
+            val datePickerState = rememberDatePickerState(
+                initialSelectedDateMillis = selectedDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+            )
+            DatePickerDialog(
+                onDismissRequest = { showDatePicker = false },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            datePickerState.selectedDateMillis?.let { millis ->
+                                selectedDate = Instant.ofEpochMilli(millis).atZone(ZoneId.systemDefault()).toLocalDate()
+                            }
+                            showDatePicker = false
+                        }
+                    ) { Text("OK") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showDatePicker = false }) { Text("Cancel") }
+                }
+            ) {
+                DatePicker(state = datePickerState)
+            }
+        }
     }
 }
 
@@ -294,8 +329,8 @@ fun DailyPlannerScreen(
 @Composable
 fun DailyPlannerPreview() {
     val context = LocalContext.current
-    val db = AppDatabase.getInstance(context)
-    val taskDao = db.taskdto()
-    val viewModel: TaskViewModel = viewModel(factory = TaskViewModelFactory(taskDao))
-    DailyPlannerScreen(viewModel)
+    // This is a simplified setup for preview purposes and won't have a real database.
+    // In a real app, you might use a fake ViewModel for previews.
+    val viewModel: TaskViewModel = viewModel()
+    DailyPlannerScreen(viewModel, onHomeClicked = {}, onCalendarClicked = {})
 }
