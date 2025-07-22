@@ -43,9 +43,9 @@ import androidx.compose.ui.graphics.lerp
 import com.example.smartlife.ui.theme.SmartLifeTheme
 
 
-private val openAiKey = "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"
-private val elevenApiKey = "sk_a1ded608ebab3efedec73736bd1b605e464dc6ee115e7e6d"
-private val elevenVoiceId = "s3TPKV1kjDlVtZbl4Ksh"
+//private val openAiKey = "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"
+//private val elevenApiKey = "sk_a1ded608ebab3efedec73736bd1b605e464dc6ee115e7e6d"
+//private val elevenVoiceId = "s3TPKV1kjDlVtZbl4Ksh"
 
 class VoiceAssistant : ComponentActivity() {
     private val client = OkHttpClient()
