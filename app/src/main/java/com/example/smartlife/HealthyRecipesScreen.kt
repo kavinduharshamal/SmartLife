@@ -37,8 +37,9 @@ fun HealthyRecipesScreen(
     onHomeClicked: () -> Unit,
     onCalendarClicked: () -> Unit,
     onRecipesClicked: () -> Unit,
-    onVoiceClicked: () -> Unit
-) {
+    onVoiceClicked: () -> Unit,
+    onMoodSongsClicked: () -> Unit,
+    ) {
     var selectedCategory by remember { mutableStateOf("Breakfast") }
     val categories = listOf("Breakfast", "Lunch", "Dinner", "Snacks")
     val recipes = getRecipesByCategory(selectedCategory)
@@ -51,7 +52,8 @@ fun HealthyRecipesScreen(
                 onHomeClicked = onHomeClicked,
                 onRecipesClicked = onRecipesClicked,
                 onVoiceClicked = onVoiceClicked,
-                initialSelectedItem = 1 // Recipes is the second item (index 1)
+                onMoodSongsClicked = onMoodSongsClicked,
+                initialSelectedItem = 1
             )
         },
         containerColor = Color(0xFFF7F8FC)
@@ -358,7 +360,8 @@ fun HealthyRecipesScreenPreview() {
             onHomeClicked = {},
             onCalendarClicked = {},
             onRecipesClicked = {},
-            onVoiceClicked = {}
+            onVoiceClicked = {},
+            onMoodSongsClicked = {}
         )
     }
 }

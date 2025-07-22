@@ -4,10 +4,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material.icons.filled.Face
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.RestaurantMenu
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -26,6 +23,7 @@ fun BottomNavigationBar(
     onHomeClicked: () -> Unit,
     onRecipesClicked: () -> Unit,
     onVoiceClicked: () -> Unit,
+    onMoodSongsClicked: () -> Unit,
     initialSelectedItem: Int
 ) {
     var selectedItem by remember { mutableStateOf(initialSelectedItem) }
@@ -33,7 +31,8 @@ fun BottomNavigationBar(
         "Home" to Icons.Default.Home,
         "Recipes" to Icons.Default.RestaurantMenu,
         "Calendar" to Icons.Default.DateRange,
-        "VoiceAssistance" to Icons.Default.Face
+        "Voice" to Icons.Default.Face,
+        "Mood" to Icons.Default.MusicNote
     )
 
     val topRoundedCorners = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
@@ -61,7 +60,8 @@ fun BottomNavigationBar(
                             "Home" -> onHomeClicked()
                             "Recipes" -> onRecipesClicked()
                             "Calendar" -> onCalendarClicked()
-                            "VoiceAssistance" -> onVoiceClicked()
+                            "Voice" -> onVoiceClicked()
+                            "Mood" -> onMoodSongsClicked()
                         }
                     },
                     alwaysShowLabel = false

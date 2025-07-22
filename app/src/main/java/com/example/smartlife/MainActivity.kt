@@ -14,10 +14,12 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.smartlife.data.SongDatabaseHelper
 import com.example.smartlife.model.TaskViewModel.TaskViewModel
 import com.example.smartlife.model.TaskViewModelFactory
 import com.example.smartlife.screen.dailyplanner.DailyPlannerScreen
 import com.example.smartlife.screen.dashboard.DashboardScreen
+import com.example.smartlife.screen.mood.MoodSongsScreen
 import com.example.smartlife.screen.recipes.HealthyRecipesScreen
 import com.example.smartlife.screen.recipes.Recipe
 import com.example.smartlife.screen.voiceassistant.VoiceAssistantScreen
@@ -36,6 +38,7 @@ sealed class Screen {
     object DailyPlanner : Screen()
     object HealthyRecipes : Screen()
     object VoiceAssistant : Screen()
+    object MoodSongs : Screen()
     data class RecipeDetail(val recipe: Recipe) : Screen()
 }
 
@@ -69,6 +72,7 @@ fun MainApp() {
     val db = AppDatabase.getInstance(context)
     val taskDao = db.taskDao()
     val taskViewModel: TaskViewModel = viewModel(factory = TaskViewModelFactory(taskDao))
+    val songDbHelper = remember { SongDatabaseHelper(context) }
 
 
     var currentScreen by remember {
@@ -134,6 +138,7 @@ fun MainApp() {
                 onCalendarClicked = { currentScreen = Screen.DailyPlanner },
                 onHomeClicked = { /* Already on Dashboard */ },
                 onRecipesClicked = { currentScreen = Screen.HealthyRecipes },
+                onMoodSongsClicked = {currentScreen = Screen.MoodSongs},
                 onVoiceClicked = { currentScreen = Screen.VoiceAssistant }
             )
         }
@@ -143,6 +148,7 @@ fun MainApp() {
                 onHomeClicked = { currentScreen = Screen.Dashboard },
                 onCalendarClicked = { /* Already on DailyPlanner */ },
                 onRecipesClicked = { currentScreen = Screen.HealthyRecipes },
+                onMoodSongsClicked = {currentScreen = Screen.MoodSongs},
                 onVoiceClicked = { currentScreen = Screen.VoiceAssistant }
             )
         }
@@ -154,15 +160,27 @@ fun MainApp() {
                 onHomeClicked = { currentScreen = Screen.Dashboard },
                 onCalendarClicked = { currentScreen = Screen.DailyPlanner },
                 onRecipesClicked = { /* Already on Recipes */ },
-                onVoiceClicked = { currentScreen = Screen.VoiceAssistant }
-            )
+                onVoiceClicked = { currentScreen = Screen.VoiceAssistant },
+                onMoodSongsClicked = {currentScreen = Screen.MoodSongs},
+                )
         }
         is Screen.VoiceAssistant -> {
             VoiceAssistantScreen (
                 onHomeClicked = { currentScreen = Screen.Dashboard },
                 onCalendarClicked = { currentScreen = Screen.DailyPlanner },
                 onRecipesClicked = { currentScreen = Screen.HealthyRecipes },
-                onVoiceClicked = { /* Already on Voice Assistant */ }
+                onVoiceClicked = { /* Already on Voice Assistant */ },
+                onMoodSongsClicked = {currentScreen = Screen.MoodSongs},
+                )
+        }
+
+        is Screen.MoodSongs -> {
+            MoodSongsScreen (
+                onHomeClicked = { currentScreen = Screen.Dashboard },
+                onCalendarClicked = { currentScreen = Screen.DailyPlanner },
+                onRecipesClicked = { currentScreen = Screen.HealthyRecipes },
+                onVoiceClicked = { currentScreen = Screen.VoiceAssistant },
+                onMoodSongsClicked = {},
             )
         }
         is Screen.RecipeDetail -> {

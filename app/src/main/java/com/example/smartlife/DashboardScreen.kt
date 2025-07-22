@@ -29,8 +29,10 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -49,7 +51,8 @@ fun DashboardScreen(
     onCalendarClicked: () -> Unit,
     onHomeClicked: () -> Unit,
     onRecipesClicked: () -> Unit,
-    onVoiceClicked: () -> Unit
+    onVoiceClicked: () -> Unit,
+    onMoodSongsClicked: () -> Unit
 ) {
     val context = LocalContext.current
     val sharedPreferences = remember {
@@ -61,6 +64,20 @@ fun DashboardScreen(
     var userGender by remember { mutableStateOf(sharedPreferences.getString("user_gender", "MALE")) }
     var userHeight by remember { mutableStateOf(sharedPreferences.getInt("user_height", 170)) }
     var userWeight by remember { mutableStateOf(sharedPreferences.getInt("user_weight", 70)) }
+
+    val motivationalQuotes = remember {
+        listOf(
+            "You got this.",
+            "Keep going.",
+            "Believe yourself.",
+            "Stay strong.",
+            "Never give up.",
+            "Dream big.",
+            "Make it happen.",
+            "Choose to shine."
+        )
+    }
+    val randomQuote by remember { mutableStateOf(motivationalQuotes.random()) }
 
     val bmi = remember(userWeight, userHeight) {
         val heightInMeters = userHeight / 100f
@@ -148,14 +165,15 @@ fun DashboardScreen(
     }
 
     Scaffold(
-        topBar = { TopAppBar(name = userName ?: "User") },
+        topBar = { TopAppBar(name = userName ?: "User", quote = randomQuote) },
         bottomBar = {
             BottomNavigationBar(
                 onCalendarClicked = onCalendarClicked,
                 onHomeClicked = onHomeClicked,
                 onRecipesClicked = onRecipesClicked,
-                initialSelectedItem = 0,
-                onVoiceClicked = onVoiceClicked
+                onVoiceClicked = onVoiceClicked,
+                onMoodSongsClicked = onMoodSongsClicked,
+                initialSelectedItem = 0
             )
         },
         containerColor = Color(0xFFF7F8FC)
@@ -164,7 +182,7 @@ fun DashboardScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(horizontal = 16.dp)
+                .padding(horizontal = 32.dp)
         ) {
             IndexesSection(
                 sleep = sleepRecommendation,
@@ -218,15 +236,17 @@ fun WeightEntryDialog(onDismiss: () -> Unit, onWeightEntered: (Int) -> Unit, ent
 
 
 @Composable
-fun TopAppBar(name: String) {
+fun TopAppBar(name: String, quote: String) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 50.dp),
+            .padding(start = 16.dp, end = 16.dp, top = 50.dp, bottom = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .padding(top = 20.dp)) {
             Image(
                 painter = painterResource(id = R.drawable.male_icon),
                 contentDescription = "User Avatar",
@@ -240,6 +260,14 @@ fun TopAppBar(name: String) {
                 Text(text = name, fontSize = 18.sp, fontWeight = FontWeight.Bold)
             }
         }
+        Text(
+            text = "\"$quote\"",
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Medium,
+            fontStyle = FontStyle.Italic,
+            color = Color.Gray,
+            textAlign = TextAlign.End
+        )
     }
 }
 
@@ -258,7 +286,7 @@ fun IndexesSection(sleep: String, water: Int, steps: Int, calories: Int) {
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            StatCard("Sleep", sleep, "hrs", Icons.Default.Face, Modifier.weight(1f))
+            StatCard("Sleep", sleep, "hrs", Icons.Default.DarkMode, Modifier.weight(1f))
             StatCard("Steps", steps.toString(), "steps", Icons.Default.DirectionsWalk, Modifier.weight(1f))
         }
         Spacer(modifier = Modifier.height(16.dp))
@@ -329,7 +357,7 @@ fun BarChart(
             .fillMaxWidth()
             .height(300.dp)
             .background(Color.White, RoundedCornerShape(20.dp))
-            .padding(top = 16.dp, bottom = 16.dp, end = 16.dp, start = 8.dp)
+            .padding(top = 26.dp, bottom = 16.dp, end = 16.dp, start = 8.dp)
     ) {
         val chartHeight = maxHeight - 40.dp
 
@@ -473,6 +501,6 @@ fun PedometerSection(
 @Composable
 fun DashboardScreenPreview() {
     SmartLifeTheme {
-        DashboardScreen(onCalendarClicked = {}, onHomeClicked = {}, onRecipesClicked ={}, onVoiceClicked = {})
+        DashboardScreen(onCalendarClicked = {}, onHomeClicked = {}, onRecipesClicked ={}, onVoiceClicked = {}, onMoodSongsClicked = {})
     }
 }

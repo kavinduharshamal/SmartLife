@@ -44,7 +44,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.lerp
 
 private const val TAG = "VoiceAssistant"
-private const val openAiKey = "ds"
+private const val openAiKey = "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"
 private const val elevenApiKey = "ds"
 private const val elevenVoiceId = "ds"
 
@@ -53,8 +53,9 @@ fun VoiceAssistantScreen(
     onHomeClicked: () -> Unit,
     onCalendarClicked: () -> Unit,
     onRecipesClicked: () -> Unit,
-    onVoiceClicked: () -> Unit
-) {
+    onVoiceClicked: () -> Unit,
+    onMoodSongsClicked: () -> Unit,
+    ) {
     val context = LocalContext.current
     val client = remember { OkHttpClient() }
     var mediaPlayer by remember { mutableStateOf<MediaPlayer?>(null) }
@@ -140,6 +141,7 @@ fun VoiceAssistantScreen(
                     onHomeClicked = onHomeClicked,
                     onRecipesClicked = onRecipesClicked,
                     onVoiceClicked = onVoiceClicked,
+                    onMoodSongsClicked = onMoodSongsClicked,
                     initialSelectedItem = 3
                 )
             },
