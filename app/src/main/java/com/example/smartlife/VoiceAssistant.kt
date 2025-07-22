@@ -43,8 +43,6 @@ import androidx.compose.ui.graphics.lerp
 import com.example.smartlife.ui.theme.SmartLifeTheme
 
 
-
-
 class VoiceAssistant : ComponentActivity() {
     private val client = OkHttpClient()
     private var mediaPlayer: MediaPlayer? = null
@@ -141,7 +139,7 @@ class VoiceAssistant : ComponentActivity() {
 
         val request = Request.Builder()
             .url("https://api.openai.com/v1/chat/completions")
-            .addHeader("Authorization", "Bearer $openAiKey")
+            //.addHeader("Authorization", "Bearer $openAiKey")
             .post(body)
             .build()
 
@@ -187,8 +185,8 @@ class VoiceAssistant : ComponentActivity() {
         """.trimIndent().toRequestBody("application/json".toMediaType())
 
         val request = Request.Builder()
-            .url("https://api.elevenlabs.io/v1/text-to-speech/$elevenVoiceId")
-            .addHeader("xi-api-key", elevenApiKey)
+            //.url("https://api.elevenlabs.io/v1/text-to-speech/$elevenVoiceId")
+            //.addHeader("xi-api-key", elevenApiKey)
             .addHeader("Content-Type", "application/json")
             .post(body)
             .build()
