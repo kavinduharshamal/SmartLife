@@ -2,10 +2,13 @@ package com.example.smartlife.screen.dashboard
 
 import android.annotation.SuppressLint
 import android.content.Context
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -19,6 +22,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -31,6 +38,7 @@ import com.example.smartlife.BottomNavigationBar
 import com.example.smartlife.R
 import com.example.smartlife.ui.theme.SecondaryLightBlue
 import com.example.smartlife.ui.theme.SmartLifeTheme
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.math.roundToInt
@@ -46,6 +54,7 @@ fun DashboardScreen(
         context.getSharedPreferences("smartlife_prefs", Context.MODE_PRIVATE)
     }
 
+    var userName by remember { mutableStateOf(sharedPreferences.getString("user_name", "Jade West")) }
     var userAge by remember { mutableStateOf(sharedPreferences.getInt("user_age", 25)) }
     var userGender by remember { mutableStateOf(sharedPreferences.getString("user_gender", "MALE")) }
     var userHeight by remember { mutableStateOf(sharedPreferences.getInt("user_height", 170)) }
@@ -93,6 +102,18 @@ fun DashboardScreen(
         mutableStateOf(entries?.split(",")?.mapNotNull { it.toIntOrNull() } ?: emptyList())
     }
 
+    var selectedTimeRange by remember { mutableStateOf("Past Week") }
+    val chartData = remember(selectedTimeRange, weightEntries.value) {
+        when (selectedTimeRange) {
+            "Past Month" -> {
+                weightEntries.value.takeLast(30).chunked(7).map { if (it.isEmpty()) 0 else it.average().roundToInt() }
+            }
+            else -> {
+                weightEntries.value.takeLast(7)
+            }
+        }
+    }
+
     LaunchedEffect(Unit) {
         val lastEntryDate = sharedPreferences.getString("last_weight_entry_date", null)
         val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
@@ -110,7 +131,7 @@ fun DashboardScreen(
             onDismiss = { showWeightDialog = false },
             onWeightEntered = { newWeight ->
                 userWeight = newWeight
-                val updatedEntries = (weightEntries.value + newWeight).takeLast(7)
+                val updatedEntries = (weightEntries.value + newWeight).takeLast(30)
                 weightEntries.value = updatedEntries
                 with(sharedPreferences.edit()) {
                     putInt("user_weight", newWeight)
@@ -125,7 +146,7 @@ fun DashboardScreen(
     }
 
     Scaffold(
-        topBar = { TopAppBar() },
+        topBar = { TopAppBar(name = userName ?: "User") },
         bottomBar = {
             BottomNavigationBar(
                 onCalendarClicked = onCalendarClicked,
@@ -133,7 +154,7 @@ fun DashboardScreen(
                 initialSelectedItem = 0
             )
         },
-        containerColor = Color.White
+        containerColor = Color(0xFFF7F8FC)
     ) { paddingValues ->
         Column(
             modifier = Modifier
@@ -147,8 +168,13 @@ fun DashboardScreen(
                 steps = stepGoal,
                 calories = calorieGoal
             )
-            Spacer(modifier = Modifier.height(24.dp))
-            PedometerSection(weightEntries.value)
+            Spacer(modifier = Modifier.weight(1f))
+            PedometerSection(
+                weightData = chartData,
+                selectedTimeRange = selectedTimeRange,
+                onTimeRangeSelected = { selectedTimeRange = it }
+            )
+            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }
@@ -188,11 +214,11 @@ fun WeightEntryDialog(onDismiss: () -> Unit, onWeightEntered: (Int) -> Unit, ent
 
 
 @Composable
-fun TopAppBar() {
+fun TopAppBar(name: String) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(30.dp),
+            .padding(horizontal = 16.dp, vertical = 20.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
@@ -201,13 +227,13 @@ fun TopAppBar() {
                 painter = painterResource(id = R.drawable.male_icon),
                 contentDescription = "User Avatar",
                 modifier = Modifier
-                    .size(40.dp)
+                    .size(48.dp)
                     .clip(CircleShape)
             )
             Spacer(modifier = Modifier.width(12.dp))
             Column {
-                Text(text = "Hello,", fontSize = 14.sp, color = Color.Gray)
-                Text(text = "Jade West", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                Text(text = "Hello,", fontSize = 16.sp, color = Color.Gray)
+                Text(text = name, fontSize = 18.sp, fontWeight = FontWeight.Bold)
             }
         }
         IconButton(onClick = { /* TODO: Handle menu click */ }) {
@@ -229,19 +255,17 @@ fun IndexesSection(sleep: String, water: Int, steps: Int, calories: Int) {
         Spacer(modifier = Modifier.height(16.dp))
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             StatCard("Sleep", sleep, "hrs", Icons.Default.Face, Modifier.weight(1f))
-            Spacer(modifier = Modifier.width(16.dp))
             StatCard("Steps", steps.toString(), "steps", Icons.Default.LocationOn, Modifier.weight(1f))
         }
         Spacer(modifier = Modifier.height(16.dp))
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            StatCard("Water", (water / 1000f).toString(), "liters", Icons.Default.Person, Modifier.weight(1f))
-            Spacer(modifier = Modifier.width(16.dp))
+            StatCard("Water", String.format("%.1f", water / 1000f), "liters", Icons.Default.FavoriteBorder, Modifier.weight(1f))
             StatCard("Calories", calories.toString(), "kcal", Icons.Default.Star, Modifier.weight(1f))
         }
     }
@@ -250,26 +274,21 @@ fun IndexesSection(sleep: String, water: Int, steps: Int, calories: Int) {
 @Composable
 fun StatCard(title: String, value: String, unit: String, icon: ImageVector, modifier: Modifier = Modifier) {
     Card(
-        modifier = modifier
-            .border(
-                width = 1.dp,
-                color = Color.LightGray,
-                shape = RoundedCornerShape(16.dp)
-            ),
-        shape = RoundedCornerShape(16.dp),
+        modifier = modifier,
+        shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Icon(imageVector = icon, contentDescription = title, tint = SecondaryLightBlue,
                 modifier = Modifier.size(32.dp)
             )
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(16.dp))
             Text(text = title, fontSize = 14.sp, color = Color.Gray)
-            Row(verticalAlignment = Alignment.Bottom) {
-                Text(text = value, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+            Row(verticalAlignment = Alignment.Bottom, modifier = Modifier.padding(top = 4.dp)) {
+                Text(text = value, fontSize = 22.sp, fontWeight = FontWeight.Bold)
                 Spacer(modifier = Modifier.width(4.dp))
-                Text(text = unit, fontSize = 14.sp, color = Color.Gray, modifier = Modifier.padding(bottom = 4.dp))
+                Text(text = unit, fontSize = 14.sp, color = Color.Gray, modifier = Modifier.padding(bottom = 2.dp))
             }
         }
     }
@@ -279,62 +298,109 @@ fun StatCard(title: String, value: String, unit: String, icon: ImageVector, modi
 @Composable
 fun BarChart(
     modifier: Modifier = Modifier,
-    values: List<Int>
+    values: List<Int>,
+    labels: List<String>
 ) {
-    val maxValue = values.maxOrNull() ?: 0
+    val displayValues = List(labels.size - values.size) { 0 } + values
+    val animatables = remember(values) { displayValues.map { Animatable(0f) } }
+    var selectedIndex by remember { mutableStateOf<Int?>(null) }
+
+    LaunchedEffect(values) {
+        animatables.forEachIndexed { index, animatable ->
+            launch {
+                animatable.animateTo(
+                    targetValue = if (displayValues.getOrNull(index) != null) 1f else 0f,
+                    animationSpec = tween(durationMillis = 1000)
+                )
+            }
+        }
+    }
+
+    val maxValue = displayValues.maxOrNull()?.takeIf { it > 0 } ?: 1
     val barWidth = 24.dp
     val highlightColor = Color(0xFF2EB5FA)
     val defaultColor = Color(0x802EB5FA)
     val gridLineColor = Color(0xFFE0E0E0)
-    val gridLinesCount = 5
-    val days = listOf("Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat").takeLast(values.size)
-
+    val gridLinesCount = 4
 
     BoxWithConstraints(
         modifier = modifier
             .fillMaxWidth()
-            .height(220.dp)
+            .height(300.dp)
+            .background(Color.White, RoundedCornerShape(20.dp))
+            .padding(top = 16.dp, bottom = 16.dp, end = 16.dp, start = 8.dp)
     ) {
-        val chartHeight = maxHeight
+        val chartHeight = maxHeight - 40.dp // Space for labels at bottom
 
         Canvas(modifier = Modifier.fillMaxSize()) {
-            val availableHeight = size.height
-            val spacing = availableHeight / gridLinesCount
+            val yAxisSpace = 32.dp.toPx()
+            val chartDrawableWidth = size.width - yAxisSpace
 
-            repeat(gridLinesCount + 1) { i ->
-                val y = i * spacing
+            val yAxisPaint = android.graphics.Paint().apply {
+                color = Color.Gray.toArgb()
+                textSize = 12.sp.toPx()
+                textAlign = android.graphics.Paint.Align.RIGHT
+            }
+
+            val step = (maxValue / gridLinesCount).takeIf { it > 0 } ?: 1
+            (0..gridLinesCount).forEach { i ->
+                val y = chartHeight.toPx() - (i * (chartHeight.toPx() / gridLinesCount))
+                val pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 10f), 0f)
                 drawLine(
                     color = gridLineColor,
-                    start = Offset(0f, y),
+                    start = Offset(yAxisSpace, y),
                     end = Offset(size.width, y),
-                    strokeWidth = 1.dp.toPx()
+                    strokeWidth = 1.dp.toPx(),
+                    pathEffect = pathEffect
                 )
+                drawIntoCanvas {
+                    it.nativeCanvas.drawText(
+                        (i * step).toString(),
+                        yAxisSpace - 8.dp.toPx(),
+                        y + 4.dp.toPx(),
+                        yAxisPaint
+                    )
+                }
             }
         }
 
         Row(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 12.dp),
+                .padding(start = 32.dp), // Match yAxisSpace
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.Bottom
         ) {
-            values.forEachIndexed { index, value ->
+            displayValues.forEachIndexed { index, value ->
                 Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable { selectedIndex = if (selectedIndex == index) null else index },
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Bottom
                 ) {
+                    if (selectedIndex == index && value > 0) {
+                        Text(
+                            text = "$value kg",
+                            fontSize = 12.sp,
+                            color = Color.White,
+                            modifier = Modifier
+                                .background(Color.DarkGray, RoundedCornerShape(4.dp))
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                    }
                     Box(
                         modifier = Modifier
-                            .height((chartHeight - 24.dp) * (value / maxValue.toFloat()))
+                            .height(chartHeight * (value / maxValue.toFloat()) * animatables[index].value)
                             .width(barWidth)
                             .clip(RoundedCornerShape(8.dp))
                             .background(
-                                if (value == values.maxOrNull()) highlightColor else defaultColor
+                                if (value > 0 && index == displayValues.indexOfLast { it > 0 }) highlightColor else defaultColor
                             )
                     )
                     Spacer(modifier = Modifier.height(8.dp))
-                    Text(text = days.getOrElse(index) { "" }, fontSize = 12.sp)
+                    Text(text = labels.getOrElse(index) { "" }, fontSize = 12.sp, color = Color.Gray)
                 }
             }
         }
@@ -342,7 +408,30 @@ fun BarChart(
 }
 
 @Composable
-fun PedometerSection(weightData: List<Int>) {
+fun PedometerSection(
+    weightData: List<Int>,
+    selectedTimeRange: String,
+    onTimeRangeSelected: (String) -> Unit
+) {
+    var isDropdownExpanded by remember { mutableStateOf(false) }
+    val timeRangeOptions = listOf("Past Week", "Past Month")
+
+    val chartLabels = remember(selectedTimeRange) {
+        when (selectedTimeRange) {
+            "Past Month" -> listOf("Week 1", "Week 2", "Week 3", "Week 4")
+            else -> {
+                val sdf = SimpleDateFormat("EEE", Locale.getDefault())
+                val calendar = Calendar.getInstance()
+                calendar.add(Calendar.DAY_OF_MONTH, -6)
+                (0..6).map {
+                    val dayLabel = sdf.format(calendar.time)
+                    calendar.add(Calendar.DAY_OF_MONTH, 1)
+                    dayLabel
+                }
+            }
+        }
+    }
+
     Column {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -350,22 +439,36 @@ fun PedometerSection(weightData: List<Int>) {
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Text(text = "Weight Distribution", fontSize = 22.sp, fontWeight = FontWeight.Bold)
-            OutlinedButton(onClick = { /* TODO */ }) {
-                Text(text = "Past Week")
-                Icon(Icons.Default.ArrowDropDown, contentDescription = "Dropdown")
+            Box {
+                OutlinedButton(onClick = { isDropdownExpanded = true }) {
+                    Text(text = selectedTimeRange)
+                    Icon(Icons.Default.ArrowDropDown, contentDescription = "Dropdown")
+                }
+                DropdownMenu(
+                    expanded = isDropdownExpanded,
+                    onDismissRequest = { isDropdownExpanded = false }
+                ) {
+                    timeRangeOptions.forEach { option ->
+                        DropdownMenuItem(
+                            text = { Text(option) },
+                            onClick = {
+                                onTimeRangeSelected(option)
+                                isDropdownExpanded = false
+                            }
+                        )
+                    }
+                }
             }
         }
         Spacer(modifier = Modifier.height(16.dp))
         BarChart(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(220.dp),
-            values = weightData
+            values = weightData,
+            labels = chartLabels
         )
     }
 }
 
-@Preview(showBackground = true)
+@Preview(showBackground = true, widthDp = 360, heightDp = 800)
 @Composable
 fun DashboardScreenPreview() {
     SmartLifeTheme {

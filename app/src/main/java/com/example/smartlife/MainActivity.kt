@@ -24,6 +24,7 @@ private const val TAG = "MainAppNavigation"
 
 sealed class Screen {
     object Welcome : Screen()
+    object NameSelection : Screen()
     object GenderSelection : Screen()
     object HeightSelection : Screen()
     object WeightSelection : Screen()
@@ -73,7 +74,17 @@ fun MainApp() {
     when (currentScreen) {
         is Screen.Welcome -> {
             WelcomeScreen(onGetStartedClicked = {
-                Log.d(TAG, "Navigating from Welcome to GenderSelection")
+                Log.d(TAG, "Navigating from Welcome to NameSelection")
+                currentScreen = Screen.NameSelection
+            })
+        }
+        is Screen.NameSelection -> {
+            NameSelectionScreen(onContinueClicked = { name ->
+                with(sharedPreferences.edit()) {
+                    putString("user_name", name)
+                    apply()
+                }
+                Log.d(TAG, "Navigating from NameSelection to GenderSelection")
                 currentScreen = Screen.GenderSelection
             })
         }
