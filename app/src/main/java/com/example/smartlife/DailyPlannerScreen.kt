@@ -51,7 +51,8 @@ fun DailyPlannerScreen(
     viewModel: TaskViewModel,
     onHomeClicked: () -> Unit,
     onCalendarClicked: () -> Unit,
-    onRecipesClicked: () -> Unit
+    onRecipesClicked: () -> Unit,
+    onVoiceClicked: () -> Unit
 ) {
     val context = LocalContext.current
     val tasks by viewModel.tasks.collectAsState()
@@ -97,6 +98,7 @@ fun DailyPlannerScreen(
                 onHomeClicked = onHomeClicked,
                 onCalendarClicked = onCalendarClicked,
                 onRecipesClicked = onRecipesClicked,
+                onVoiceClicked = onVoiceClicked,
                 initialSelectedItem = 2
             )
         },
@@ -335,5 +337,5 @@ fun DailyPlannerPreview() {
     val db = AppDatabase.getInstance(context)
     val taskDao = db.taskDao()
     val viewModel: TaskViewModel = viewModel(factory = TaskViewModelFactory(taskDao))
-    DailyPlannerScreen(viewModel, onHomeClicked = {}, onCalendarClicked = {}, onRecipesClicked = {})
+    DailyPlannerScreen(viewModel, onHomeClicked = {}, onCalendarClicked = {}, onRecipesClicked = {}, onVoiceClicked = {})
 }

@@ -1,4 +1,4 @@
-package com.example.smartlife
+package com.example.smartlife.screen.voiceassistant
 
 import android.Manifest
 import android.content.Context
@@ -9,9 +9,9 @@ import android.os.Bundle
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
+import android.util.Log
 import android.widget.Toast
-import androidx.activity.ComponentActivity
-import androidx.activity.compose.setContent
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.layout.*
@@ -32,131 +32,175 @@ import java.io.File
 import java.io.IOException
 import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import com.example.smartlife.ui.components.BottomNavigationBar
 import kotlinx.coroutines.*
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.lerp
-import com.example.smartlife.ui.theme.SmartLifeTheme
 
+private const val TAG = "VoiceAssistant"
+private const val openAiKey = "ds"
+private const val elevenApiKey = "ds"
+private const val elevenVoiceId = "ds"
 
-private val openAiKey = "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"
-private val elevenApiKey = "sk_a1ded608ebab3efedec73736bd1b605e464dc6ee115e7e6d"
-private val elevenVoiceId = "s3TPKV1kjDlVtZbl4Ksh"
+@Composable
+fun VoiceAssistantScreen(
+    onHomeClicked: () -> Unit,
+    onCalendarClicked: () -> Unit,
+    onRecipesClicked: () -> Unit,
+    onVoiceClicked: () -> Unit
+) {
+    val context = LocalContext.current
+    val client = remember { OkHttpClient() }
+    var mediaPlayer by remember { mutableStateOf<MediaPlayer?>(null) }
 
-class VoiceAssistant : ComponentActivity() {
-    private val client = OkHttpClient()
-    private var mediaPlayer: MediaPlayer? = null
-    private lateinit var speechRecognizerManager: SpeechRecognizerManager
+    val isListeningState = remember { mutableStateOf(false) }
+    val isAssistantSpeaking = remember { mutableStateOf(false) }
+    val isProcessingState = remember { mutableStateOf(false) }
 
-    private val conversationState = mutableStateOf(listOf<String>())
-    private val isListeningState = mutableStateOf(false)
-    private val isAssistantSpeaking = mutableStateOf(false)
-    private val isProcessingState = mutableStateOf(false)
-    private val isSessionActive = mutableStateOf(false)
+    val currentResponseText = remember { mutableStateOf("Hello! I'm your assistant. Tap the mic to start.") }
+    val currentHighlightedWordIndex = remember { mutableStateOf(-1) }
+    var highlightJob by remember { mutableStateOf<Job?>(null) }
 
-    // New states for word highlighting
-    private val currentResponseText = mutableStateOf("")
-    private val currentHighlightedWordIndex = mutableStateOf(-1)
-    private var highlightJob: Job? = null
-
-    private val requestPermissionLauncher = registerForActivityResult(
+    val requestPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { isGranted: Boolean ->
-        if (isGranted) startSpeechRecognition()
-        else Toast.makeText(this, "Microphone permission is required", Toast.LENGTH_LONG).show()
+        if (isGranted) {
+            Log.d(TAG, "Microphone permission granted.")
+            isListeningState.value = true
+        } else {
+            Log.d(TAG, "Microphone permission denied.")
+            Toast.makeText(context, "Microphone permission is required", Toast.LENGTH_LONG).show()
+        }
     }
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-
-        conversationState.value = listOf("Assistant: Hello! I'm your assistant. Tap the mic to start.")
-
-        setContent {
-            SmartLifeTheme {
-                VoiceAssistantScreen(
-                    isListening = isListeningState.value,
-                    isSpeaking = isAssistantSpeaking.value,
-                    isProcessing = isProcessingState.value,
-                    assistantResponse = currentResponseText.value,
-                    highlightedWordIndex = currentHighlightedWordIndex.value,
-                    onMicClick = {
-                        if (!isAssistantSpeaking.value) {
-                            if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
-                                != PackageManager.PERMISSION_GRANTED
-                            ) {
-                                requestPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-                            } else {
-                                isSessionActive.value = true
-                                startSpeechRecognition()
-                            }
-                        }
-                    }
-                )
-            }
-        }
-
-        speechRecognizerManager = SpeechRecognizerManager(
-            context = this,
+    val speechRecognizerManager = remember {
+        SpeechRecognizerManager(
+            context = context,
             onResult = { text ->
-                conversationState.value += "You: $text"
+                Log.d(TAG, "Speech recognized: $text")
                 isListeningState.value = false
-
-                if (text.lowercase().contains("thank you")) {
-                    isSessionActive.value = false
-                    isProcessingState.value = false
-                    return@SpeechRecognizerManager
-                }
-
                 isProcessingState.value = true
-                getChatResponse(text) { response ->
-                    conversationState.value += "Assistant: $response"
-                    textToSpeech(response)
+                getChatResponse(client, text) { response ->
+                    textToSpeech(context, client, response,
+                        onStart = {
+                            isAssistantSpeaking.value = true
+                            currentResponseText.value = response
+                            currentHighlightedWordIndex.value = -1
+                        },
+                        onComplete = {
+                            isAssistantSpeaking.value = false
+                            isProcessingState.value = false
+                            currentHighlightedWordIndex.value = -1
+                            highlightJob?.cancel()
+                        },
+                        onHighlightJobCreated = { job -> highlightJob = job },
+                        setMediaPlayer = { mp -> mediaPlayer = mp },
+                        updateHighlightedIndex = { index -> currentHighlightedWordIndex.value = index }
+                    )
                 }
             },
             onError = { error ->
+                Log.e(TAG, "Speech recognition error: $error")
                 isListeningState.value = false
                 isProcessingState.value = false
-                Toast.makeText(this, error, Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, error, Toast.LENGTH_SHORT).show()
             }
         )
-
-        textToSpeech("Hello! I'm your assistant. tap button to start.")
     }
 
-    private fun startSpeechRecognition() {
-        isListeningState.value = true
-        speechRecognizerManager.startListening()
+    LaunchedEffect(isListeningState.value) {
+        if (isListeningState.value) {
+            Log.d(TAG, "Starting to listen...")
+            speechRecognizerManager.startListening()
+        }
     }
 
-    private fun getChatResponse(userInput: String, callback: (String) -> Unit) {
-        val jsonMediaType = "application/json; charset=utf-8".toMediaType()
-        val body = """
-            {
-                "model": "gpt-4",
-                "messages": [{"role": "user", "content": "$userInput"}]
-            }
+    DisposableEffect(Unit) {
+        onDispose {
+            Log.d(TAG, "Disposing VoiceAssistantScreen")
+            mediaPlayer?.release()
+            speechRecognizerManager.destroy()
+            highlightJob?.cancel()
+        }
+    }
+
+    // This Box provides the background gradient for the entire screen
+    Box(modifier = Modifier.fillMaxSize()) {
+        GradientBackground()
+        Scaffold(
+            bottomBar = {
+                BottomNavigationBar(
+                    onCalendarClicked = onCalendarClicked,
+                    onHomeClicked = onHomeClicked,
+                    onRecipesClicked = onRecipesClicked,
+                    onVoiceClicked = onVoiceClicked,
+                    initialSelectedItem = 3
+                )
+            },
+            containerColor = Color.Transparent // Make Scaffold transparent
+        ) { paddingValues ->
+            VoiceAssistantUI(
+                modifier = Modifier.padding(paddingValues),
+                isListening = isListeningState.value,
+                isSpeaking = isAssistantSpeaking.value,
+                isProcessing = isProcessingState.value,
+                assistantResponse = currentResponseText.value,
+                highlightedWordIndex = currentHighlightedWordIndex.value,
+                onMicClick = {
+                    Log.d(TAG, "Mic button clicked.")
+                    if (!isAssistantSpeaking.value && !isProcessingState.value) {
+                        if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+                            isListeningState.value = true
+                        } else {
+                            Log.d(TAG, "Requesting microphone permission.")
+                            requestPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                        }
+                    } else {
+                        Log.d(TAG, "Mic click ignored: assistant is speaking or processing.")
+                    }
+                }
+            )
+        }
+    }
+}
+
+private fun getChatResponse(client: OkHttpClient, userInput: String, callback: (String) -> Unit) {
+    Log.d(TAG, "Sending to OpenAI: '$userInput'")
+    val jsonMediaType = "application/json; charset=utf-8".toMediaType()
+    val body = """
+        {
+          "model": "gpt-4",
+          "messages": [
+            {"role": "system", "content": "Respond in less than 40 words."},
+            {"role": "user", "content": "$userInput"}
+          ],
+          "max_tokens": 60
+        }
         """.trimIndent().toRequestBody(jsonMediaType)
 
-        val request = Request.Builder()
-            .url("https://api.openai.com/v1/chat/completions")
-            .addHeader("Authorization", "Bearer $openAiKey")
-            .post(body)
-            .build()
 
-        client.newCall(request).enqueue(object : Callback {
-            override fun onFailure(call: Call, e: IOException) {
-                runOnUiThread {
-                    Toast.makeText(this@VoiceAssistant, "OpenAI error: ${e.message}", Toast.LENGTH_SHORT).show()
-                    isProcessingState.value = false
-                }
-            }
+    val request = Request.Builder()
+        .url("https://api.openai.com/v1/chat/completions")
+        .addHeader("Authorization", "Bearer $openAiKey")
+        .post(body)
+        .build()
 
-            override fun onResponse(call: Call, response: Response) {
-                response.body?.string()?.let { responseBody ->
+    client.newCall(request).enqueue(object : Callback {
+        override fun onFailure(call: Call, e: IOException) {
+            Log.e(TAG, "OpenAI API call failed: ${e.message}")
+            callback("Error: ${e.message}")
+        }
+
+        override fun onResponse(call: Call, response: Response) {
+            response.body?.string().let { responseBody ->
+                if (response.isSuccessful && responseBody != null) {
+                    Log.d(TAG, "OpenAI response: $responseBody")
                     try {
                         val reply = JSONObject(responseBody)
                             .getJSONArray("choices")
@@ -165,109 +209,111 @@ class VoiceAssistant : ComponentActivity() {
                             .getString("content")
                         callback(reply)
                     } catch (e: Exception) {
-                        runOnUiThread {
-                            Toast.makeText(this@VoiceAssistant, "Parsing error: ${e.message}", Toast.LENGTH_SHORT).show()
-                            isProcessingState.value = false
-                        }
+                        Log.e(TAG, "JSON parsing error: ${e.message}")
+                        callback("Parsing error: ${e.message}")
                     }
+                } else {
+                    Log.e(TAG, "OpenAI API error: ${response.code} ${response.message}")
+                    callback("API error: ${response.code}")
                 }
             }
-        })
-    }
-
-    private fun textToSpeech(text: String) {
-        isAssistantSpeaking.value = true
-        currentResponseText.value = text
-        currentHighlightedWordIndex.value = -1
-
-        val body = """
-            {
-              "model_id": "eleven_monolingual_v1",
-              "text": "$text",
-              "voice_settings": {"stability": 0.5, "similarity_boost": 0.5}
-            }
-        """.trimIndent().toRequestBody("application/json".toMediaType())
-
-        val request = Request.Builder()
-            .url("https://api.elevenlabs.io/v1/text-to-speech/$elevenVoiceId")
-            .addHeader("xi-api-key", elevenApiKey)
-            .addHeader("Content-Type", "application/json")
-            .post(body)
-            .build()
-
-        client.newCall(request).enqueue(object : Callback {
-            override fun onFailure(call: Call, e: IOException) {
-                runOnUiThread {
-                    Toast.makeText(this@VoiceAssistant, "TTS error: ${e.message}", Toast.LENGTH_SHORT).show()
-                    isAssistantSpeaking.value = false
-                    isProcessingState.value = false
-                }
-            }
-
-            override fun onResponse(call: Call, response: Response) {
-                val bytes = response.body?.bytes() ?: return
-                val tempFile = File.createTempFile("voice", ".mp3", cacheDir)
-                tempFile.writeBytes(bytes)
-
-                mediaPlayer?.release()
-                mediaPlayer = MediaPlayer().apply {
-                    setDataSource(tempFile.absolutePath)
-                    setOnPreparedListener {
-                        start()
-                        // Start word highlighting when audio starts playing
-                        startWordHighlighting(text, duration)
-                    }
-                    setOnCompletionListener {
-                        tempFile.delete()
-                        isAssistantSpeaking.value = false
-                        isProcessingState.value = false
-                        currentHighlightedWordIndex.value = -1
-                        highlightJob?.cancel()
-
-                        if (isSessionActive.value) {
-                            startSpeechRecognition()
-                        }
-                    }
-
-                    prepareAsync()
-                }
-            }
-        })
-    }
-
-    private fun startWordHighlighting(text: String, audioDurationMs: Int) {
-        val words = text.split(" ")
-        if (words.isEmpty()) return
-
-        // Calculate approximate time per word
-        val timePerWordMs = audioDurationMs / words.size.toLong()
-
-        highlightJob?.cancel()
-        highlightJob = CoroutineScope(Dispatchers.Main).launch {
-            for (i in words.indices) {
-                if (!isActive) break
-                currentHighlightedWordIndex.value = i
-                delay(timePerWordMs)
-            }
-            currentHighlightedWordIndex.value = -1
         }
-    }
-
-    override fun onDestroy() {
-        mediaPlayer?.release()
-        speechRecognizerManager.stopListening()
-        highlightJob?.cancel()
-        super.onDestroy()
-    }
+    })
 }
 
-// SpeechRecognizerManager remains unchanged
+private fun textToSpeech(
+    context: Context,
+    client: OkHttpClient,
+    text: String,
+    onStart: () -> Unit,
+    onComplete: () -> Unit,
+    onHighlightJobCreated: (Job) -> Unit,
+    setMediaPlayer: (MediaPlayer) -> Unit,
+    updateHighlightedIndex: (Int) -> Unit
+) {
+    Log.d(TAG, "Sending to ElevenLabs for TTS: '$text'")
+    onStart()
+    val body = """
+        {
+          "model_id": "eleven_monolingual_v1",
+          "text": "$text",
+          "voice_settings": {"stability": 0.5, "similarity_boost": 0.5}
+        }
+    """.trimIndent().toRequestBody("application/json".toMediaType())
+
+    val request = Request.Builder()
+        .url("https://api.elevenlabs.io/v1/text-to-speech/$elevenVoiceId")
+        .addHeader("xi-api-key", elevenApiKey)
+        .addHeader("Content-Type", "application/json")
+        .post(body)
+        .build()
+
+    client.newCall(request).enqueue(object : Callback {
+        override fun onFailure(call: Call, e: IOException) {
+            Log.e(TAG, "ElevenLabs API call failed: ${e.message}")
+            onComplete()
+        }
+
+        override fun onResponse(call: Call, response: Response) {
+            if (!response.isSuccessful) {
+                Log.e(TAG, "ElevenLabs API error: ${response.code} ${response.message}")
+                onComplete()
+                return
+            }
+
+            val bytes = response.body?.bytes()
+            if (bytes != null) {
+                Log.d(TAG, "Received ${bytes.size} bytes of audio data.")
+                val tempFile = File.createTempFile("voice", ".mp3", context.cacheDir)
+                tempFile.writeBytes(bytes)
+
+                val mp = MediaPlayer().apply {
+                    setDataSource(tempFile.absolutePath)
+                    setOnPreparedListener {
+                        Log.d(TAG, "MediaPlayer prepared, starting playback.")
+                        start()
+                        val words = text.split(" ")
+                        if (words.isNotEmpty()) {
+                            val timePerWordMs = duration.toLong().coerceAtLeast(1) / words.size.toLong().coerceAtLeast(1)
+                            val job = CoroutineScope(Dispatchers.Main).launch {
+                                for (i in words.indices) {
+                                    if (!isActive) break
+                                    updateHighlightedIndex(i)
+                                    delay(timePerWordMs)
+                                }
+                            }
+                            onHighlightJobCreated(job)
+                        }
+                    }
+                    setOnCompletionListener {
+                        Log.d(TAG, "MediaPlayer playback completed.")
+                        tempFile.delete()
+                        updateHighlightedIndex(-1)
+                        onComplete()
+                    }
+                    setOnErrorListener { _, what, extra ->
+                        Log.e(TAG, "MediaPlayer error: what=$what, extra=$extra")
+                        onComplete()
+                        true
+                    }
+                    prepareAsync()
+                }
+                setMediaPlayer(mp)
+            } else {
+                Log.e(TAG, "ElevenLabs response body is null.")
+                onComplete()
+            }
+        }
+    })
+}
+
+
 class SpeechRecognizerManager(
     context: Context,
     private val onResult: (String) -> Unit,
     private val onError: (String) -> Unit
 ) {
-    private val recognizer = SpeechRecognizer.createSpeechRecognizer(context)
+    private val recognizer: SpeechRecognizer = SpeechRecognizer.createSpeechRecognizer(context)
 
     init {
         recognizer.setRecognitionListener(object : RecognitionListener {
@@ -296,10 +342,8 @@ class SpeechRecognizerManager(
         recognizer.startListening(intent)
     }
 
-    fun stopListening() {
-        recognizer.stopListening()
-        recognizer.destroy()
-    }
+    fun stopListening() = recognizer.stopListening()
+    fun destroy() = recognizer.destroy()
 }
 
 @Composable
@@ -308,7 +352,7 @@ fun AnimatedMicButton(
     isSpeaking: Boolean,
     onClick: () -> Unit
 ) {
-    val baseColor = Color(0xFF42A5F6) // Blue-ish
+    val baseColor = Color(0xFF42A5F6)
     val colors = listOf(
         baseColor.copy(alpha = 0.2f),
         baseColor.copy(alpha = 0.4f),
@@ -317,7 +361,7 @@ fun AnimatedMicButton(
     )
 
     val sizes = listOf(200.dp, 160.dp, 120.dp, 80.dp)
-    val durations = listOf(1000, 800, 600, 400) // Different durations for wave effect
+    val durations = listOf(1000, 800, 600, 400)
 
     val transitions = sizes.indices.map { index ->
         rememberInfiniteTransition(label = "Box$index")
@@ -331,7 +375,7 @@ fun AnimatedMicButton(
                 animation = tween(
                     durationMillis = durations[index],
                     easing = LinearEasing,
-                    delayMillis = index * 100 // phase shift for wave effect
+                    delayMillis = index * 100
                 ),
                 repeatMode = RepeatMode.Reverse
             ),
@@ -392,20 +436,18 @@ fun HighlightedText(
         words.forEachIndexed { index, word ->
             when {
                 index == highlightedWordIndex -> {
-                    // Highlighted: white text, dark background, bold, larger size
                     withStyle(
                         style = SpanStyle(
                             color = Color.White,
                             background = Color(0xFF242E49),
                             fontWeight = FontWeight.Bold,
-                            fontSize = 28.sp // Larger size for emphasis
+                            fontSize = 28.sp
                         )
                     ) {
                         append(word)
                     }
                 }
                 else -> {
-                    // Default assistant response color
                     withStyle(
                         style = SpanStyle(
                             color = Color(0xFF9EA7B8),
@@ -426,15 +468,58 @@ fun HighlightedText(
     Text(
         text = annotatedString,
         style = MaterialTheme.typography.bodyLarge.copy(textAlign = TextAlign.Center),
-        fontSize = 23.sp, // Base size (used by default if not overridden)
+        fontSize = 23.sp,
         modifier = modifier.fillMaxWidth()
     )
 }
 
+@Composable
+fun GradientBackground() {
+    val colorPairs = listOf(
+        Color(0xFF7986CB) to Color(0xFFE8EAF6),
+        Color(0xFF64B5F6) to Color(0xFFE3F2FD),
+        Color(0xFF4FC3F7) to Color(0xFFF1F8FF),
+        Color(0xFF90CAF9) to Color(0xFFFFFFFF)
+    )
+
+    var currentIndex by remember { mutableStateOf(0) }
+    val nextIndex = (currentIndex + 1) % colorPairs.size
+
+    val transition = rememberInfiniteTransition(label = "ColorWave")
+    val progress by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1500, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "Progress"
+    )
+
+    LaunchedEffect(progress) {
+        if (progress >= 0.99f) {
+            currentIndex = nextIndex
+        }
+    }
+
+    val topColor = lerp(colorPairs[currentIndex].first, colorPairs[nextIndex].first, progress)
+    val bottomColor = lerp(colorPairs[currentIndex].second, colorPairs[nextIndex].second, progress)
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(
+                brush = Brush.verticalGradient(
+                    colors = listOf(topColor, bottomColor)
+                )
+            )
+    )
+}
 
 
 @Composable
-fun VoiceAssistantScreen(
+fun VoiceAssistantUI(
+    modifier: Modifier = Modifier,
     isListening: Boolean,
     isSpeaking: Boolean,
     isProcessing: Boolean,
@@ -449,49 +534,9 @@ fun VoiceAssistantScreen(
         else -> ""
     }
 
-    // Color pairs for wave-like transitions
-    val colorPairs = listOf(
-        Color(0xFF7986CB) to Color(0xFFE8EAF6),
-        Color(0xFF64B5F6) to Color(0xFFE3F2FD),
-        Color(0xFF4FC3F7) to Color(0xFFF1F8FF),
-        Color(0xFF90CAF9) to Color(0xFFFFFFFF)
-    )
-
-    // State to track current and next color pair
-    var currentIndex by remember { mutableStateOf(0) }
-    val nextIndex = (currentIndex + 1) % colorPairs.size
-
-    // Animate progress between the current and next color
-    val transition = rememberInfiniteTransition(label = "ColorWave")
-    val progress by transition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1500, easing = LinearEasing), // Fast color wave every 1.5s
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "Progress"
-    )
-
-    // When progress reaches ~100%, update color index
-    LaunchedEffect(progress) {
-        if (progress >= 0.99f) {
-            currentIndex = nextIndex
-        }
-    }
-
-    // Interpolated gradient colors
-    val topColor = lerp(colorPairs[currentIndex].first, colorPairs[nextIndex].first, progress)
-    val bottomColor = lerp(colorPairs[currentIndex].second, colorPairs[nextIndex].second, progress)
-
     Box(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxSize()
-            .background(
-                brush = Brush.verticalGradient(
-                    colors = listOf(topColor, bottomColor)
-                )
-            )
             .padding(16.dp),
         contentAlignment = Alignment.Center
     ) {

@@ -20,6 +20,7 @@ import com.example.smartlife.screen.dailyplanner.DailyPlannerScreen
 import com.example.smartlife.screen.dashboard.DashboardScreen
 import com.example.smartlife.screen.recipes.HealthyRecipesScreen
 import com.example.smartlife.screen.recipes.Recipe
+import com.example.smartlife.screen.voiceassistant.VoiceAssistantScreen
 import com.example.smartlife.ui.theme.*
 
 private const val TAG = "MainAppNavigation"
@@ -34,6 +35,7 @@ sealed class Screen {
     object Dashboard : Screen()
     object DailyPlanner : Screen()
     object HealthyRecipes : Screen()
+    object VoiceAssistant : Screen()
     data class RecipeDetail(val recipe: Recipe) : Screen()
 }
 
@@ -131,7 +133,8 @@ fun MainApp() {
             DashboardScreen (
                 onCalendarClicked = { currentScreen = Screen.DailyPlanner },
                 onHomeClicked = { /* Already on Dashboard */ },
-                onRecipesClicked = { currentScreen = Screen.HealthyRecipes }
+                onRecipesClicked = { currentScreen = Screen.HealthyRecipes },
+                onVoiceClicked = { currentScreen = Screen.VoiceAssistant }
             )
         }
         is Screen.DailyPlanner -> {
@@ -139,7 +142,8 @@ fun MainApp() {
                 viewModel = taskViewModel,
                 onHomeClicked = { currentScreen = Screen.Dashboard },
                 onCalendarClicked = { /* Already on DailyPlanner */ },
-                onRecipesClicked = { currentScreen = Screen.HealthyRecipes }
+                onRecipesClicked = { currentScreen = Screen.HealthyRecipes },
+                onVoiceClicked = { currentScreen = Screen.VoiceAssistant }
             )
         }
         is Screen.HealthyRecipes -> {
@@ -149,7 +153,16 @@ fun MainApp() {
                 },
                 onHomeClicked = { currentScreen = Screen.Dashboard },
                 onCalendarClicked = { currentScreen = Screen.DailyPlanner },
-                onRecipesClicked = { /* Already on Recipes */ }
+                onRecipesClicked = { /* Already on Recipes */ },
+                onVoiceClicked = { currentScreen = Screen.VoiceAssistant }
+            )
+        }
+        is Screen.VoiceAssistant -> {
+            VoiceAssistantScreen (
+                onHomeClicked = { currentScreen = Screen.Dashboard },
+                onCalendarClicked = { currentScreen = Screen.DailyPlanner },
+                onRecipesClicked = { currentScreen = Screen.HealthyRecipes },
+                onVoiceClicked = { /* Already on Voice Assistant */ }
             )
         }
         is Screen.RecipeDetail -> {

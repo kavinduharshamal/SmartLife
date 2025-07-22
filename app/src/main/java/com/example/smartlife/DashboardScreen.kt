@@ -48,7 +48,8 @@ import kotlin.math.roundToInt
 fun DashboardScreen(
     onCalendarClicked: () -> Unit,
     onHomeClicked: () -> Unit,
-    onRecipesClicked: () -> Unit
+    onRecipesClicked: () -> Unit,
+    onVoiceClicked: () -> Unit
 ) {
     val context = LocalContext.current
     val sharedPreferences = remember {
@@ -153,7 +154,8 @@ fun DashboardScreen(
                 onCalendarClicked = onCalendarClicked,
                 onHomeClicked = onHomeClicked,
                 onRecipesClicked = onRecipesClicked,
-                initialSelectedItem = 0
+                initialSelectedItem = 0,
+                onVoiceClicked = onVoiceClicked
             )
         },
         containerColor = Color(0xFFF7F8FC)
@@ -471,6 +473,6 @@ fun PedometerSection(
 @Composable
 fun DashboardScreenPreview() {
     SmartLifeTheme {
-        DashboardScreen(onCalendarClicked = {}, onHomeClicked = {}, onRecipesClicked ={})
+        DashboardScreen(onCalendarClicked = {}, onHomeClicked = {}, onRecipesClicked ={}, onVoiceClicked = {})
     }
 }
