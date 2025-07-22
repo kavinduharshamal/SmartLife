@@ -2,12 +2,12 @@ package com.example.smartlife.screen.dashboard
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.graphics.Paint
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -34,8 +34,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.smartlife.BottomNavigationBar
 import com.example.smartlife.R
+import com.example.smartlife.ui.components.BottomNavigationBar
 import com.example.smartlife.ui.theme.SecondaryLightBlue
 import com.example.smartlife.ui.theme.SmartLifeTheme
 import kotlinx.coroutines.launch
@@ -47,7 +47,8 @@ import kotlin.math.roundToInt
 @Composable
 fun DashboardScreen(
     onCalendarClicked: () -> Unit,
-    onHomeClicked: () -> Unit
+    onHomeClicked: () -> Unit,
+    onRecipesClicked: () -> Unit
 ) {
     val context = LocalContext.current
     val sharedPreferences = remember {
@@ -151,6 +152,7 @@ fun DashboardScreen(
             BottomNavigationBar(
                 onCalendarClicked = onCalendarClicked,
                 onHomeClicked = onHomeClicked,
+                onRecipesClicked = onRecipesClicked,
                 initialSelectedItem = 0
             )
         },
@@ -218,7 +220,7 @@ fun TopAppBar(name: String) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 20.dp),
+            .padding(horizontal = 20.dp, vertical = 50.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
@@ -235,9 +237,6 @@ fun TopAppBar(name: String) {
                 Text(text = "Hello,", fontSize = 16.sp, color = Color.Gray)
                 Text(text = name, fontSize = 18.sp, fontWeight = FontWeight.Bold)
             }
-        }
-        IconButton(onClick = { /* TODO: Handle menu click */ }) {
-            Icon(Icons.Default.Menu, contentDescription = "Menu")
         }
     }
 }
@@ -258,15 +257,15 @@ fun IndexesSection(sleep: String, water: Int, steps: Int, calories: Int) {
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             StatCard("Sleep", sleep, "hrs", Icons.Default.Face, Modifier.weight(1f))
-            StatCard("Steps", steps.toString(), "steps", Icons.Default.LocationOn, Modifier.weight(1f))
+            StatCard("Steps", steps.toString(), "steps", Icons.Default.DirectionsWalk, Modifier.weight(1f))
         }
         Spacer(modifier = Modifier.height(16.dp))
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            StatCard("Water", String.format("%.1f", water / 1000f), "liters", Icons.Default.FavoriteBorder, Modifier.weight(1f))
-            StatCard("Calories", calories.toString(), "kcal", Icons.Default.Star, Modifier.weight(1f))
+            StatCard("Water", String.format("%.1f", water / 1000f), "liters", Icons.Default.WaterDrop, Modifier.weight(1f))
+            StatCard("Calories", calories.toString(), "kcal", Icons.Default.LocalFireDepartment, Modifier.weight(1f))
         }
     }
 }
@@ -330,16 +329,16 @@ fun BarChart(
             .background(Color.White, RoundedCornerShape(20.dp))
             .padding(top = 16.dp, bottom = 16.dp, end = 16.dp, start = 8.dp)
     ) {
-        val chartHeight = maxHeight - 40.dp // Space for labels at bottom
+        val chartHeight = maxHeight - 40.dp
 
         Canvas(modifier = Modifier.fillMaxSize()) {
             val yAxisSpace = 32.dp.toPx()
             val chartDrawableWidth = size.width - yAxisSpace
 
-            val yAxisPaint = android.graphics.Paint().apply {
+            val yAxisPaint = Paint().apply {
                 color = Color.Gray.toArgb()
                 textSize = 12.sp.toPx()
-                textAlign = android.graphics.Paint.Align.RIGHT
+                textAlign = Paint.Align.RIGHT
             }
 
             val step = (maxValue / gridLinesCount).takeIf { it > 0 } ?: 1
@@ -367,7 +366,7 @@ fun BarChart(
         Row(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(start = 32.dp), // Match yAxisSpace
+                .padding(start = 32.dp),
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.Bottom
         ) {
@@ -472,6 +471,6 @@ fun PedometerSection(
 @Composable
 fun DashboardScreenPreview() {
     SmartLifeTheme {
-        DashboardScreen(onCalendarClicked = {}, onHomeClicked = {})
+        DashboardScreen(onCalendarClicked = {}, onHomeClicked = {}, onRecipesClicked ={})
     }
 }

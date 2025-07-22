@@ -18,6 +18,8 @@ import com.example.smartlife.model.TaskViewModel.TaskViewModel
 import com.example.smartlife.model.TaskViewModelFactory
 import com.example.smartlife.screen.dailyplanner.DailyPlannerScreen
 import com.example.smartlife.screen.dashboard.DashboardScreen
+import com.example.smartlife.screen.recipes.HealthyRecipesScreen
+import com.example.smartlife.screen.recipes.Recipe
 import com.example.smartlife.ui.theme.*
 
 private const val TAG = "MainAppNavigation"
@@ -31,6 +33,8 @@ sealed class Screen {
     object AgeSelection : Screen()
     object Dashboard : Screen()
     object DailyPlanner : Screen()
+    object HealthyRecipes : Screen()
+    data class RecipeDetail(val recipe: Recipe) : Screen()
 }
 
 class MainActivity : ComponentActivity() {
@@ -71,10 +75,9 @@ fun MainApp() {
 
     Log.d(TAG, "Current Screen: ${currentScreen::class.java.simpleName}")
 
-    when (currentScreen) {
+    when (val screen = currentScreen) {
         is Screen.Welcome -> {
             WelcomeScreen(onGetStartedClicked = {
-                Log.d(TAG, "Navigating from Welcome to NameSelection")
                 currentScreen = Screen.NameSelection
             })
         }
@@ -84,7 +87,6 @@ fun MainApp() {
                     putString("user_name", name)
                     apply()
                 }
-                Log.d(TAG, "Navigating from NameSelection to GenderSelection")
                 currentScreen = Screen.GenderSelection
             })
         }
@@ -94,7 +96,6 @@ fun MainApp() {
                     putString("user_gender", selectedGender.name)
                     apply()
                 }
-                Log.d(TAG, "Navigating from GenderSelection to HeightSelection")
                 currentScreen = Screen.HeightSelection
             })
         }
@@ -104,7 +105,6 @@ fun MainApp() {
                     putInt("user_height", selectedHeight)
                     apply()
                 }
-                Log.d(TAG, "Navigating from HeightSelection to WeightSelection")
                 currentScreen = Screen.WeightSelection
             })
         }
@@ -114,7 +114,6 @@ fun MainApp() {
                     putInt("user_weight", selectedWeight)
                     apply()
                 }
-                Log.d(TAG, "Navigating from WeightSelection to AgeSelection")
                 currentScreen = Screen.AgeSelection
             })
         }
@@ -125,31 +124,38 @@ fun MainApp() {
                     putBoolean("welcome_screen_shown", true)
                     apply()
                 }
-                Log.d(TAG, "Navigating from AgeSelection to Dashboard")
                 currentScreen = Screen.Dashboard
             })
         }
         is Screen.Dashboard -> {
             DashboardScreen (
-                onCalendarClicked = {
-                    Log.d(TAG, "Dashboard: onCalendarClicked triggered. Attempting to navigate to DailyPlanner.")
-                    currentScreen = Screen.DailyPlanner
-                },
-                onHomeClicked = {
-                    Log.d(TAG, "Dashboard: onHomeClicked triggered. Already on Dashboard.")
-                }
+                onCalendarClicked = { currentScreen = Screen.DailyPlanner },
+                onHomeClicked = { /* Already on Dashboard */ },
+                onRecipesClicked = { currentScreen = Screen.HealthyRecipes }
             )
         }
         is Screen.DailyPlanner -> {
             DailyPlannerScreen(
                 viewModel = taskViewModel,
-                onHomeClicked = {
-                    Log.d(TAG, "DailyPlanner: onHomeClicked triggered. Attempting to navigate to Dashboard.")
-                    currentScreen = Screen.Dashboard
+                onHomeClicked = { currentScreen = Screen.Dashboard },
+                onCalendarClicked = { /* Already on DailyPlanner */ },
+                onRecipesClicked = { currentScreen = Screen.HealthyRecipes }
+            )
+        }
+        is Screen.HealthyRecipes -> {
+            HealthyRecipesScreen(
+                onRecipeSelected = { recipe ->
+                    currentScreen = Screen.RecipeDetail(recipe)
                 },
-                onCalendarClicked = {
-                    Log.d(TAG, "DailyPlanner: onCalendarClicked triggered. Already on DailyPlanner.")
-                }
+                onHomeClicked = { currentScreen = Screen.Dashboard },
+                onCalendarClicked = { currentScreen = Screen.DailyPlanner },
+                onRecipesClicked = { /* Already on Recipes */ }
+            )
+        }
+        is Screen.RecipeDetail -> {
+            RecipeDetailScreen(
+                recipe = screen.recipe,
+                onBackClicked = { currentScreen = Screen.HealthyRecipes }
             )
         }
     }

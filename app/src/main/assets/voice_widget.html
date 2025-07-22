@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Voice Assistant</title>
+</head>
+<body>
+<elevenlabs-convai agent-id="agent_01jzq2p66gezq8jyjkqkvn0gzg"></elevenlabs-convai>
+<script src="https://unpkg.com/@elevenlabs/convai-widget-embed" async type="text/javascript"></script>
+<script>
+    window.ConversationalAI = {
+        sendMessage: function(message) {
+            // Assuming the widget exposes a method to send messages
+            document.querySelector('elevenlabs-convai').sendMessage(message);
+        }
+    };
+
+    // Override or listen to the widget's response event
+    document.querySelector('elevenlabs-convai').addEventListener('messageResponse', function(event) {
+        // Send the response back to Android
+        Android.onMessageResponse(event.detail.response);
+    });
+</script>
+</body>
+</html>

@@ -29,10 +29,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.smartlife.BottomNavigationBar
+import com.example.smartlife.AppDatabase
 import com.example.smartlife.data.TaskEntity
 import com.example.smartlife.model.TaskViewModel.TaskViewModel
 import com.example.smartlife.model.TaskViewModelFactory
+import com.example.smartlife.ui.components.BottomNavigationBar
 import com.example.smartlife.ui.theme.Pink40
 import com.example.smartlife.ui.theme.PrimaryBlue
 import java.text.SimpleDateFormat
@@ -49,7 +50,8 @@ import java.util.*
 fun DailyPlannerScreen(
     viewModel: TaskViewModel,
     onHomeClicked: () -> Unit,
-    onCalendarClicked: () -> Unit
+    onCalendarClicked: () -> Unit,
+    onRecipesClicked: () -> Unit
 ) {
     val context = LocalContext.current
     val tasks by viewModel.tasks.collectAsState()
@@ -94,6 +96,7 @@ fun DailyPlannerScreen(
             BottomNavigationBar(
                 onHomeClicked = onHomeClicked,
                 onCalendarClicked = onCalendarClicked,
+                onRecipesClicked = onRecipesClicked,
                 initialSelectedItem = 2
             )
         },
@@ -329,8 +332,8 @@ fun DailyPlannerScreen(
 @Composable
 fun DailyPlannerPreview() {
     val context = LocalContext.current
-    // This is a simplified setup for preview purposes and won't have a real database.
-    // In a real app, you might use a fake ViewModel for previews.
-    val viewModel: TaskViewModel = viewModel()
-    DailyPlannerScreen(viewModel, onHomeClicked = {}, onCalendarClicked = {})
+    val db = AppDatabase.getInstance(context)
+    val taskDao = db.taskDao()
+    val viewModel: TaskViewModel = viewModel(factory = TaskViewModelFactory(taskDao))
+    DailyPlannerScreen(viewModel, onHomeClicked = {}, onCalendarClicked = {}, onRecipesClicked = {})
 }

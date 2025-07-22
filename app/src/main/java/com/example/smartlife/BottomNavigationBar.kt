@@ -1,13 +1,13 @@
-package com.example.smartlife
+package com.example.smartlife.ui.components
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Face
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.RestaurantMenu
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -24,14 +24,16 @@ fun BottomNavigationBar(
     modifier: Modifier = Modifier,
     onCalendarClicked: () -> Unit,
     onHomeClicked: () -> Unit,
+    onRecipesClicked: () -> Unit,
+    onVoiceClicked: () -> Unit,
     initialSelectedItem: Int
 ) {
     var selectedItem by remember { mutableStateOf(initialSelectedItem) }
     val items = listOf(
         "Home" to Icons.Default.Home,
-        "Stats" to Icons.Default.Menu,
+        "Recipes" to Icons.Default.RestaurantMenu,
         "Calendar" to Icons.Default.DateRange,
-        "Settings" to Icons.Default.Settings
+        "VoiceAssistance" to Icons.Default.Face
     )
 
     val topRoundedCorners = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
@@ -57,7 +59,9 @@ fun BottomNavigationBar(
                         selectedItem = index
                         when (item.first) {
                             "Home" -> onHomeClicked()
+                            "Recipes" -> onRecipesClicked()
                             "Calendar" -> onCalendarClicked()
+                            "VoiceAssistance" -> onVoiceClicked()
                         }
                     },
                     alwaysShowLabel = false
